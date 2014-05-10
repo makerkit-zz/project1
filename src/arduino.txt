@@ -1,0 +1,296 @@
+//超声波智能避障车程序（ARDUINO）包括蓝牙控制和超声波控制切换，加速、减速控制、以及防撞车倒车控制
+//    L = 左
+//    R = 右
+//    F = 前
+//    B = 後
+ 
+#include <Servo.h> 
+unsigned char flag;
+unsigned int H_speed=100;
+int pinLB=3;     // 定義6腳位 左後
+int pinLF=5;     // 定義9腳位 左前
+ 
+int pinRB=6;    // 定義10腳位 右後
+int pinRF=11;    // 定義11腳位 右前
+ 
+int inputPin = A0;  // 定義超音波信號接收腳位
+int outputPin =A1;  // 定義超音波信號發射腳位
+ 
+int Fspeedd = 0;      // 前速
+int Rspeedd = 0;      // 右速
+int Lspeedd = 0;      // 左速
+int directionn = 0;   // 前=8 後=2 左=4 右=6 
+Servo myservo;        // 設 myservo
+int delay_time = 250; // 伺服馬達轉向後的穩定時間
+ 
+int Fgo = 8;         // 前進
+int Rgo = 6;         // 右轉
+int Lgo = 4;         // 左轉
+int Bgo = 2;         // 倒車
+char temp;
+void advance(int a)     // 前進
+    {
+     analogWrite(pinRB,H_speed);  // 使馬達（右後）動作
+     analogWrite(pinRF,0);
+     analogWrite(pinLB,H_speed);  // 使馬達（左後）動作
+     analogWrite(pinLF,0);
+     delay(a * 20);     
+    }
+void turnR(int d)        //右轉(雙輪)
+    {
+     analogWrite(pinRB,0);  //使馬達（右後）動作
+     analogWrite(pinRF,H_speed);
+     analogWrite(pinLB,H_speed);
+     analogWrite(pinLF,0);  //使馬達（左前）動作
+     delay(d *5);
+    }
+void turnL(int e)        //左轉(雙輪)
+    {
+     analogWrite(pinRB,H_speed);
+     analogWrite(pinRF,0);   //使馬達（右前）動作
+     analogWrite(pinLB,0);   //使馬達（左後）動作
+     analogWrite(pinLF,H_speed);
+     delay(e * 5);
+    }    
+void stopp(int f)         //停止
+    {
+     analogWrite(pinRB,0);
+     analogWrite(pinRF,0);
+     analogWrite(pinLB,0);
+     analogWrite(pinLF,0);
+     delay(f * 20);
+    }
+     
+void back(int g)          //後退
+    {
+     analogWrite(pinRB,0);  //使馬達（右後）動作
+     analogWrite(pinRF,H_speed);
+     analogWrite(pinLB,0);  //使馬達（左後）動作
+     analogWrite(pinLF,H_speed);
+     delay(g * 20);     
+    }
+     
+void detection()        //測量3個角度(0.90.179)
+    {      
+      int delay_time = 250;   // 伺服馬達轉向後的穩定時間
+      ask_pin_F();            // 讀取前方距離   
+      if(Fspeedd <40)         // 假如前方距離小於25公分
+      {
+        ask_pin_L();            // 讀取左方距離
+        delay(delay_time);      // 等待伺服馬達穩定
+        ask_pin_R();            // 讀取右方距離  
+        delay(delay_time);      // 等待伺服馬達穩定  
+        if(Lspeedd < 20 && Rspeedd <20)   //假如 左邊距離和右邊距離皆小於10公分
+        {
+         directionn = Bgo;      //向後走        
+        }
+        else
+        {
+          if(Lspeedd > Rspeedd)   //假如 左邊距離大於右邊距離
+          {
+           directionn = Rgo;      //向右走
+          }
+           
+          if(Lspeedd <= Rspeedd)   //假如 左邊距離小於或等於右邊距離
+          {
+           directionn = Lgo;      //向左走
+          } 
+        }                          
+      }
+      else                      //加如前方不小於(大於)25公分     
+      {
+        directionn = Fgo;        //向前走     
+      }
+      
+    }    
+void ask_pin_F()   // 量出前方距離 
+    {
+      myservo.write(90);
+      digitalWrite(outputPin, LOW);   // 讓超聲波發射低電壓2μs
+      delayMicroseconds(2);
+      digitalWrite(outputPin, HIGH);  // 讓超聲波發射高電壓10μs，這裡至少是10μs
+      delayMicroseconds(10);
+      digitalWrite(outputPin, LOW);    // 維持超聲波發射低電壓
+      float Fdistance = pulseIn(inputPin, HIGH);  // 讀差相差時間
+      Fdistance= Fdistance/5.8/10;       // 將時間轉為距離距离（單位：公分）
+      Serial.print("F distance:");      //輸出距離（單位：公分）
+      Serial.println(Fdistance);         //顯示距離
+      Fspeedd = Fdistance;              // 將距離 讀入Fspeedd(前速)
+    }  
+ void ask_pin_L()   // 量出左邊距離 
+    {
+      myservo.write(5);
+      delay(delay_time);
+      digitalWrite(outputPin, LOW);   // 讓超聲波發射低電壓2μs
+      delayMicroseconds(2);
+      digitalWrite(outputPin, HIGH);  // 讓超聲波發射高電壓10μs，這裡至少是10μs
+      delayMicroseconds(10);
+      digitalWrite(outputPin, LOW);    // 維持超聲波發射低電壓
+      float Ldistance = pulseIn(inputPin, HIGH);  // 讀差相差時間
+      Ldistance= Ldistance/5.8/10;       // 將時間轉為距離距离（單位：公分）
+      Serial.print("L distance:");       //輸出距離（單位：公分）
+      Serial.println(Ldistance);         //顯示距離
+      Lspeedd = Ldistance;              // 將距離 讀入Lspeedd(左速)
+    }  
+void ask_pin_R()   // 量出右邊距離 
+    {
+      myservo.write(177);
+      delay(delay_time);
+      digitalWrite(outputPin, LOW);   // 讓超聲波發射低電壓2μs
+      delayMicroseconds(2);
+      digitalWrite(outputPin, HIGH);  // 讓超聲波發射高電壓10μs，這裡至少是10μs
+      delayMicroseconds(10);
+      digitalWrite(outputPin, LOW);    // 維持超聲波發射低電壓
+      float Rdistance = pulseIn(inputPin, HIGH);  // 讀差相差時間
+      Rdistance= Rdistance/5.8/10;       // 將時間轉為距離距离（單位：公分）
+      Serial.print("R distance:");       //輸出距離（單位：公分）
+      Serial.println(Rdistance);         //顯示距離
+      Rspeedd = Rdistance;              // 將距離 讀入Rspeedd(右速)
+    }  
+     
+void stop()
+{
+     analogWrite(pinRB,0);  //使馬達（右後）動作
+     analogWrite(pinRF,0);
+     analogWrite(pinLB,0);  //使馬達（左後）動作
+     analogWrite(pinLF,0);
+}
+ 
+void csb()
+{
+    myservo.write(90);  //讓伺服馬達回歸 預備位置 準備下一次的測量
+    detection();        //測量角度 並且判斷要往哪一方向移動
+       
+   if(directionn == 2)  //假如directionn(方向) = 2(倒車)             
+   {
+     back(15);                    //  倒退(車)
+     turnL(10);                   //些微向左方移動(防止卡在死巷裡)
+     Serial.print(" Reverse ");   //顯示方向(倒退)
+   }
+   if(directionn == 6)           //假如directionn(方向) = 6(右轉)    
+   {
+     back(1); 
+     turnR(20);                   // 右轉
+     Serial.print(" Right ");    //顯示方向(左轉)
+     ask_pin_F();
+   }
+   if(directionn == 4)          //假如directionn(方向) = 4(左轉)    
+   {  
+     back(1);      
+     turnL(20);                  // 左轉
+     Serial.print(" Left ");     //顯示方向(右轉) 
+     ask_pin_F();  
+   }  
+   if(directionn == 8)          //假如directionn(方向) = 8(前進)      
+   { 
+    advance(1);                 // 正常前進   
+    Serial.print(" Advance ");   //顯示方向(前進)
+    Serial.print("   ");    
+   }
+}
+ 
+void setup()
+ {
+  Serial.begin(9600);     // 定義馬達輸出腳位 
+  pinMode(pinLB,OUTPUT); // 腳位 8 (PWM)
+  pinMode(pinLF,OUTPUT); // 腳位 9 (PWM)
+  pinMode(pinRB,OUTPUT); // 腳位 10 (PWM) 
+  pinMode(pinRF,OUTPUT); // 腳位 11 (PWM)
+   
+  pinMode(inputPin, INPUT);    // 定義超音波輸入腳位
+  pinMode(outputPin, OUTPUT);  // 定義超音波輸出腳位   
+ 
+  myservo.attach(10);    // 定義伺服馬達輸出第10腳位(PWM)
+  delay(1000);
+  char val = Serial.read();
+  if(val == 'B'| val == 'b')
+  {
+      flag = 1;
+      Serial.println("blue tooth!");
+  }
+  else
+  {
+      flag = 0;
+      Serial.println("csb!");
+  }
+ }
+     
+void loop()
+ {
+     delay(500);
+     char vat = Serial.read();
+     if(vat == 'b'| vat == 'B')
+     {
+         flag = 1;
+         stop();
+         Serial.println("blue tooth!");
+     }
+     else if(vat == 't'| vat == 'T')
+    {
+        flag = 0;
+        stop();
+        Serial.println("csb!");
+    }
+    if(vat == '+')
+    {
+      if(H_speed<240)
+      {
+        H_speed+=10;
+      }
+    }
+    else if(vat == '-')
+    {
+      if(H_speed>15)
+      {
+        H_speed-=10;
+      }
+    }
+     if(flag == 1)
+     {
+        myservo.write(90);  //讓伺服馬達回歸 預備位置 準備下一次的測量   
+        ask_pin_F();
+        if('W' == vat || 'w' == vat|| 'A' == vat|| 'a' == vat|| 's' == vat|| 'S' == vat|| 'd' == vat|| 'D' == vat)      
+        {
+          temp=vat;
+        }
+          if('W' == temp || 'w' == temp)
+          {
+            ask_pin_F();
+            if(Fspeedd>30)
+            {
+              advance(1);
+              Serial.println("GO!");
+            }
+            else
+            {
+              stop();
+              Serial.println("I'm will hit obstacles!");
+            }
+          }
+          else if('A' == temp | 'a' == temp)
+          {
+             turnR(6); 
+             Serial.println("Left");
+           }
+          else if('D' == temp | 'd' == temp)
+          {
+             turnL(6);
+             Serial.println("Right");
+          }
+          else if('S' == temp | 's' == temp)
+         { 
+           back(1);
+           Serial.println("Back");
+         }
+        else if('Q' == temp | 'q' == temp)
+        {
+           stop();
+           Serial.println("Stop!");
+        }  
+     }
+     else
+     {
+         stop();
+         csb();
+     }
+ }
