@@ -1,9 +1,4 @@
-//超声波智能避障车程序（ARDUINO）包括蓝牙控制和超声波控制切换，加速、减速控制、以及防撞车倒车控制
-//    L = 左
-//    R = 右
-//    F = 前
-//    B = 後
- 
+
 #include <Servo.h> 
 unsigned char flag;
 unsigned int H_speed=100;
